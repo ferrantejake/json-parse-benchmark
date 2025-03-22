@@ -1,21 +1,32 @@
 #[macro_use]
 extern crate napi_derive;
 
-use napi::{
-    bindgen_prelude::*,
-    JsString,
-};
 use serde_json::value::RawValue;
 
-#[napi(js_name = "parseJson")]
-pub fn parse_json(_env: Env, json_str: JsString) -> Result<JsString> {
-    // Get string content
-    let utf8 = json_str.into_utf8()?;
-    let str_ref = utf8.as_str()?;
+#[napi]
+pub fn parse_json(json_str: String) -> String {
+    // Use serde_json as it's proven to be the fastest
+    match serde_json::from_str::<&RawValue>(&json_str) {
+        Ok(_) => json_str,
+        Err(e) => format!("Invalid JSON: {}", e)
+    }
+}
+
+#[napi]
+pub fn parse_json_serde(json_str: String) -> String {
+    match serde_json::from_str::<&RawValue>(&json_str) {
+        Ok(_) => json_str,
+        Err(e) => format!("Invalid JSON: {}", e)
+    }
+}
+
+#[napi]
+pub fn parse_json_simd(json_str: String) -> String {
+    // Create a mutable copy as simd-json requires a mutable buffer
+    let mut json_data = json_str.clone().into_bytes();
     
-    // Use RawValue for zero-copy validation
-    match serde_json::from_str::<&RawValue>(str_ref) {
-        Ok(_) => Ok(json_str),  // Return original string if valid
-        Err(e) => Err(Error::from_reason(e.to_string()))
+    match simd_json::to_owned_value(&mut json_data) {
+        Ok(_) => json_str,
+        Err(e) => format!("Invalid JSON: {}", e)
     }
 }
