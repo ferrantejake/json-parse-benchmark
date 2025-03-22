@@ -1,4 +1,4 @@
-# JSON Parser Benchmark
+# JSON Parser vs. Rust JSON Parse Benchmark
 
 A simple project comparing JSON parsing performance between Node.js's native `JSON.parse` and a Rust implementation using Neon bindings.
 
