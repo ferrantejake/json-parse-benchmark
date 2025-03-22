@@ -23,13 +23,24 @@ npm run benchmark
 ## Sample Results
 
 ```
-Test 1: Single parse
-Node JSON.parse: 0.08ms
-Rust parse: 0.023ms
+> json-parser-neon@0.1.0 build
+> cargo build --release && mkdir -p build && cp target/release/libjson_parser_neon.dylib build/index.node
 
-Test 2: 1000 iterations
-Node JSON.parse (1000x): 2.902ms
-Rust parse (1000x): 6.322ms
+    Finished `release` profile [optimized] target(s) in 0.01s
+
+JSON Parsing Performance Comparison
+
+|File                     |Operation      |Node.js (ms) |Rust (ms)    |Difference     |
+|-------------------------|---------------|-------------|-------------|---------------|
+|sample.json              |Single Parse   |        0.027|        0.020|26.8% faster   |
+|sample.json              |1000 Iterations|        2.675|        0.925|65.4% faster   |
+|-------------------------|---------------|-------------|-------------|---------------|
+|sample-big-array.json    |Single Parse   |        3.181|        1.225|61.5% faster   |
+|sample-big-array.json    |1000 Iterations|     2358.425|     1069.909|54.6% faster   |
+|-------------------------|---------------|-------------|-------------|---------------|
+|sample-big-object.json   |Single Parse   |        0.192|        0.112|41.8% faster   |
+|sample-big-object.json   |1000 Iterations|      109.829|       71.124|35.2% faster   |
+|-------------------------|---------------|-------------|-------------|---------------|
 ```
 
 Single operations are ~3.5x faster in Rust, but bulk operations are ~2.2x faster in Node.js, possibly due to binding overhead.

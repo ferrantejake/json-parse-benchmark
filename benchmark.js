@@ -40,7 +40,7 @@ for (const file of files) {
         `${'Single Parse'.padEnd(operationWidth)}|` +
         `${nodeSingleTime.toFixed(3).padStart(timeWidth)}|` +
         `${rustSingleTime.toFixed(3).padStart(timeWidth)}|` +
-        `${singleDiff}% slower`.padEnd(diffWidth) + '|'
+        `${Math.abs(singleDiff)}% ${Number(singleDiff) > 0 ? 'slower' : 'faster'}`.padEnd(diffWidth) + '|'
     );
     
     // Multiple iterations
@@ -64,7 +64,7 @@ for (const file of files) {
         `${iterations} Iterations`.padEnd(operationWidth) + '|' +
         `${nodeMultiTime.toFixed(3).padStart(timeWidth)}|` +
         `${rustMultiTime.toFixed(3).padStart(timeWidth)}|` +
-        `${multiDiff}% slower`.padEnd(diffWidth) + '|'
+        `${Math.abs(multiDiff)}% ${Number(multiDiff) > 0 ? 'slower' : 'faster'}`.padEnd(diffWidth) + '|'
     );
     console.log(separator);
 } 

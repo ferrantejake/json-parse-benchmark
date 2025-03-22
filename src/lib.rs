@@ -5,15 +5,17 @@ use napi::{
     bindgen_prelude::*,
     JsString,
 };
+use serde_json::value::RawValue;
 
 #[napi(js_name = "parseJson")]
-pub fn parse_json(env: Env, json_str: JsString) -> Result<JsString> {
-    // Get the string content
+pub fn parse_json(_env: Env, json_str: JsString) -> Result<JsString> {
+    // Get string content
     let utf8 = json_str.into_utf8()?;
-    let json_str = utf8.as_str()?;
+    let str_ref = utf8.as_str()?;
     
-    // Parse and validate JSON without converting to Value
-    serde_json::from_str::<serde_json::Value>(json_str)
-        .map(|_| env.create_string(json_str).unwrap())
-        .map_err(|e| Error::from_reason(e.to_string()))
+    // Use RawValue for zero-copy validation
+    match serde_json::from_str::<&RawValue>(str_ref) {
+        Ok(_) => Ok(json_str),  // Return original string if valid
+        Err(e) => Err(Error::from_reason(e.to_string()))
+    }
 }
