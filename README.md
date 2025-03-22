@@ -10,8 +10,6 @@ A simple project comparing JSON parsing performance between Node.js's native `JS
 ## Quick Start
 
 ```bash
-git clone <repository-url>
-cd json-parser-neon
 npm install
 npm run benchmark
 ```
