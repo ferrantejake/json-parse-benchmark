@@ -2,29 +2,69 @@ const fs = require('fs');
 const path = require('path');
 const addon = require('./build/index.node');
 
-// Read sample.json
-const jsonContent = fs.readFileSync(path.join(__dirname, 'sample.json'), 'utf8');
+// Read all sample files
+const files = ['sample.json', 'sample-big-array.json', 'sample-big-object.json'];
+const iterations = 1000;
 
-// Test 1: Single parse
-console.log('Test 1: Single parse');
-console.time('Node JSON.parse');
-const nodeResult = JSON.parse(jsonContent);
-console.timeEnd('Node JSON.parse');
+// Calculate column widths
+const fileNameWidth = 25;  // Fixed width for consistent alignment
+const operationWidth = 15;
+const timeWidth = 13;      // Increased to accommodate larger numbers
+const diffWidth = 15;
 
-console.time('Rust parse');
-const rustResult = addon.parse_json(jsonContent);
-console.timeEnd('Rust parse');
+// Create separator line
+const separator = `|-${'-'.repeat(fileNameWidth-1)}|-${'-'.repeat(operationWidth-1)}|-${'-'.repeat(timeWidth-1)}|-${'-'.repeat(timeWidth-1)}|-${'-'.repeat(diffWidth-1)}|`;
 
-// Test 2: 1000 iterations
-console.log('\nTest 2: 1000 iterations');
-console.time('Node JSON.parse (1000x)');
-for (let i = 0; i < 1000; i++) {
-    JSON.parse(jsonContent);
-}
-console.timeEnd('Node JSON.parse (1000x)');
+// Table header
+console.log('\nJSON Parsing Performance Comparison\n');
+console.log(`|${'File'.padEnd(fileNameWidth)}|${'Operation'.padEnd(operationWidth)}|${'Node.js (ms)'.padEnd(timeWidth)}|${'Rust (ms)'.padEnd(timeWidth)}|${'Difference'.padEnd(diffWidth)}|`);
+console.log(separator);
 
-console.time('Rust parse (1000x)');
-for (let i = 0; i < 1000; i++) {
-    addon.parse_json(jsonContent);
-}
-console.timeEnd('Rust parse (1000x)'); 
+for (const file of files) {
+    const jsonContent = fs.readFileSync(path.join(__dirname, file), 'utf8');
+    
+    // Single parse
+    const nodeStart = process.hrtime.bigint();
+    const nodeResult = JSON.parse(jsonContent);
+    const nodeEnd = process.hrtime.bigint();
+    const nodeSingleTime = Number(nodeEnd - nodeStart) / 1_000_000; // Convert to ms
+    
+    const rustStart = process.hrtime.bigint();
+    const rustResult = addon.parseJson(jsonContent);
+    const rustEnd = process.hrtime.bigint();
+    const rustSingleTime = Number(rustEnd - rustStart) / 1_000_000; // Convert to ms
+    
+    const singleDiff = ((rustSingleTime - nodeSingleTime) / nodeSingleTime * 100).toFixed(1);
+    console.log(
+        `|${file.padEnd(fileNameWidth)}|` +
+        `${'Single Parse'.padEnd(operationWidth)}|` +
+        `${nodeSingleTime.toFixed(3).padStart(timeWidth)}|` +
+        `${rustSingleTime.toFixed(3).padStart(timeWidth)}|` +
+        `${singleDiff}% slower`.padEnd(diffWidth) + '|'
+    );
+    
+    // Multiple iterations
+    const nodeMultiStart = process.hrtime.bigint();
+    for (let i = 0; i < iterations; i++) {
+        JSON.parse(jsonContent);
+    }
+    const nodeMultiEnd = process.hrtime.bigint();
+    const nodeMultiTime = Number(nodeMultiEnd - nodeMultiStart) / 1_000_000; // Convert to ms
+    
+    const rustMultiStart = process.hrtime.bigint();
+    for (let i = 0; i < iterations; i++) {
+        addon.parseJson(jsonContent);
+    }
+    const rustMultiEnd = process.hrtime.bigint();
+    const rustMultiTime = Number(rustMultiEnd - rustMultiStart) / 1_000_000; // Convert to ms
+    
+    const multiDiff = ((rustMultiTime - nodeMultiTime) / nodeMultiTime * 100).toFixed(1);
+    console.log(
+        `|${file.padEnd(fileNameWidth)}|` +
+        `${iterations} Iterations`.padEnd(operationWidth) + '|' +
+        `${nodeMultiTime.toFixed(3).padStart(timeWidth)}|` +
+        `${rustMultiTime.toFixed(3).padStart(timeWidth)}|` +
+        `${multiDiff}% slower`.padEnd(diffWidth) + '|'
+    );
+    console.log(separator);
+} 
