@@ -1,0 +1,17 @@
+{
+  "name": "json-parser-benchmark",
+  "version": "1.0.0",
+  "description": "Benchmark comparing Node.js JSON.parse with Rust implementation",
+  "main": "node/benchmark.js",
+  "scripts": {
+    "build": "cd src && cargo build --release",
+    "benchmark": "node node/benchmark.js"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.3.1"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^2.18.4"
+  },
+  "packageManager": "yarn@4.7.0"
+}
