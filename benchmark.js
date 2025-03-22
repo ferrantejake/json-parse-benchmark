@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const addon = require('./index.node');
+const addon = require('./build/index.node');
 
 // Read sample.json
 const jsonContent = fs.readFileSync(path.join(__dirname, 'sample.json'), 'utf8');
