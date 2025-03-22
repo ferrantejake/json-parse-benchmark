@@ -6,7 +6,13 @@
   "scripts": {
     "build": "cargo build --release && mkdir -p build && cp target/release/libjson_parser_neon.dylib build/index.node",
     "clean": "rm -rf build && cargo clean",
-    "benchmark": "npm run build && node benchmark.js"
+    "_benchmark": "npm run build && node benchmark.js",
+    "benchmark": "npm run benchmark:wasm-direct",
+    "build:wasm": "./wasm-direct-build.sh",
+    "benchmark:wasm": "npm run build && npm run build:wasm && node wasm-benchmark.js",
+    "benchmark:wasm-direct": "npm run build && npm run build:wasm && node benchmark-with-wasm.js",
+    "serve": "npm run build:wasm && node server.js",
+    "serve:wasm": "npm run build:wasm && node server.js"
   },
   "author": "",
   "license": "ISC",
@@ -14,6 +20,7 @@
     "@napi-rs/cli": "^2.15.2"
   },
   "dependencies": {
+    "express": "^4.18.2",
     "simdjson": "^0.4.0"
   }
 }

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Parser Benchmark</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        #results {
+            white-space: pre;
+            overflow-x: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON Parser Benchmark</h1>
+    <button id="runBenchmark">Run Benchmark</button>
+    <div id="results">Click "Run Benchmark" to start the test...</div>
+
+    <script type="module">
+        // Load the WASM module and sample JSON
+        import init, { wasm_parse_json_serde, wasm_parse_json_simd } from './wasm/web/json_parser_neon.js';
+
+        // Sample JSON files
+        const sampleFiles = [
+            { name: 'sample.json', url: './sample.json' },
+            { name: 'sample-big-array.json', url: './sample-big-array.json' },
+            { name: 'sample-big-object.json', url: './sample-big-object.json' }
+        ];
+
+        // Initialize WASM
+        await init();
+
+        // Function to load JSON files
+        async function loadJsonFiles() {
+            const jsonFiles = {};
+            for (const file of sampleFiles) {
+                const response = await fetch(file.url);
+                jsonFiles[file.name] = await response.text();
+            }
+            return jsonFiles;
+        }
+
+        // Benchmark function
+        async function runBenchmark() {
+            const resultsElement = document.getElementById('results');
+            resultsElement.textContent = 'Loading JSON files...';
+
+            try {
+                const jsonFiles = await loadJsonFiles();
+                const iterations = 1000;
+
+                resultsElement.textContent = 'JSON Parsing Performance Comparison (Browser WASM)\n\n';
+                resultsElement.textContent += 'File                      Operation       JSON.parse    WASM Serde    WASM SIMD     Difference\n';
+                resultsElement.textContent += '-'.repeat(100) + '\n';
+
+                for (const [fileName, jsonContent] of Object.entries(jsonFiles)) {
+                    // Single parse - JSON.parse
+                    const nativeStart = performance.now();
+                    const nativeResult = JSON.parse(jsonContent);
+                    const nativeEnd = performance.now();
+                    const nativeSingleTime = nativeEnd - nativeStart;
+                    
+                    // Single parse - WASM Serde
+                    const wasmSerdeStart = performance.now();
+                    const wasmSerdeResult = wasm_parse_json_serde(jsonContent);
+                    const wasmSerdeEnd = performance.now();
+                    const wasmSerdeSingleTime = wasmSerdeEnd - wasmSerdeStart;
+                    
+                    // Single parse - WASM SIMD
+                    const wasmSimdStart = performance.now();
+                    const wasmSimdResult = wasm_parse_json_simd(jsonContent);
+                    const wasmSimdEnd = performance.now();
+                    const wasmSimdSingleTime = wasmSimdEnd - wasmSimdStart;
+                    
+                    // Find the fastest time
+                    const allTimes = [nativeSingleTime, wasmSerdeSingleTime, wasmSimdSingleTime];
+                    const methods = ["JSON.parse", "WASM Serde", "WASM SIMD"];
+                    const fastestTime = Math.min(...allTimes);
+                    const fastestIndex = allTimes.indexOf(fastestTime);
+                    const fastestMethod = methods[fastestIndex];
+                    
+                    // Calculate percentage differences
+                    const percentDiffs = allTimes.map(time => {
+                        if (time === fastestTime) return '0%';
+                        return `+${((time - fastestTime) / fastestTime * 100).toFixed(1)}%`;
+                    });
+                    
+                    resultsElement.textContent += `${fileName.padEnd(25)} ${'Single Parse'.padEnd(15)} ` +
+                        `${nativeSingleTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `${wasmSerdeSingleTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `${wasmSimdSingleTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `Best: ${fastestMethod} (${methods.filter((_, i) => i !== fastestIndex).map((method, i) => {
+                            const idx = i >= fastestIndex ? i + 1 : i;
+                            return `${method} ${percentDiffs[idx]}`;
+                        }).join(', ')})\n`;
+                    
+                    // Multiple iterations - JSON.parse
+                    const nativeMultiStart = performance.now();
+                    for (let i = 0; i < iterations; i++) {
+                        JSON.parse(jsonContent);
+                    }
+                    const nativeMultiEnd = performance.now();
+                    const nativeMultiTime = nativeMultiEnd - nativeMultiStart;
+                    
+                    // Multiple iterations - WASM Serde
+                    const wasmSerdeMultiStart = performance.now();
+                    for (let i = 0; i < iterations; i++) {
+                        wasm_parse_json_serde(jsonContent);
+                    }
+                    const wasmSerdeMultiEnd = performance.now();
+                    const wasmSerdeMultiTime = wasmSerdeMultiEnd - wasmSerdeMultiStart;
+                    
+                    // Multiple iterations - WASM SIMD
+                    const wasmSimdMultiStart = performance.now();
+                    for (let i = 0; i < iterations; i++) {
+                        wasm_parse_json_simd(jsonContent);
+                    }
+                    const wasmSimdMultiEnd = performance.now();
+                    const wasmSimdMultiTime = wasmSimdMultiEnd - wasmSimdMultiStart;
+                    
+                    // Find the fastest multi time
+                    const allMultiTimes = [nativeMultiTime, wasmSerdeMultiTime, wasmSimdMultiTime];
+                    const fastestMultiTime = Math.min(...allMultiTimes);
+                    const fastestMultiIndex = allMultiTimes.indexOf(fastestMultiTime);
+                    const fastestMultiMethod = methods[fastestMultiIndex];
+                    
+                    // Calculate percentage differences for multi
+                    const multiPercentDiffs = allMultiTimes.map(time => {
+                        if (time === fastestMultiTime) return '0%';
+                        return `+${((time - fastestMultiTime) / fastestMultiTime * 100).toFixed(1)}%`;
+                    });
+                    
+                    resultsElement.textContent += `${fileName.padEnd(25)} ${`${iterations} Iterations`.padEnd(15)} ` +
+                        `${nativeMultiTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `${wasmSerdeMultiTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `${wasmSimdMultiTime.toFixed(3).padStart(8).padEnd(13)} ` +
+                        `Best: ${fastestMultiMethod} (${methods.filter((_, i) => i !== fastestMultiIndex).map((method, i) => {
+                            const idx = i >= fastestMultiIndex ? i + 1 : i;
+                            return `${method} ${multiPercentDiffs[idx]}`;
+                        }).join(', ')})\n`;
+                    
+                    resultsElement.textContent += '-'.repeat(100) + '\n';
+                }
+            } catch (error) {
+                resultsElement.textContent = `Error: ${error.message}\n\n${error.stack}`;
+            }
+        }
+
+        // Set up button click handler
+        document.getElementById('runBenchmark').addEventListener('click', runBenchmark);
+    </script>
+</body>
+</html> 

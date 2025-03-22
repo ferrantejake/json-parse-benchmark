@@ -1,0 +1,23 @@
+[package]
+name = "json-parser-neon"
+version = "0.1.0"
+license = "ISC"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+wasm-bindgen = "0.2.87"
+js-sys = "0.3.64"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
+debug = false
+incremental = false 

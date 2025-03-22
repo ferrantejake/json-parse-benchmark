@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Parser WASM Benchmark</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .results {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON Parser WASM Benchmark</h1>
+    <p>This page demonstrates JSON parsing performance using WebAssembly.</p>
+    
+    <div>
+        <button id="run-simple">Run Simple Test</button>
+        <button id="run-large">Run Large Test</button>
+    </div>
+    
+    <h2>Results</h2>
+    <div id="results" class="results">Results will appear here...</div>
+    
+    <script type="module">
+        import init, { wasm_parse_json_serde, wasm_parse_json_simd } from './wasm/web/json_parser_neon.js';
+        
+        // Initialize the WASM module
+        let wasmInitialized = false;
+        
+        async function initWasm() {
+            try {
+                await init();
+                wasmInitialized = true;
+                console.log("WASM module initialized successfully");
+                document.getElementById('results').textContent = "WASM module loaded. Ready to run tests.";
+            } catch (error) {
+                console.error("Failed to initialize WASM module:", error);
+                document.getElementById('results').textContent = "Failed to load WASM module: " + error.message;
+            }
+        }
+        
+        // Initialize WASM on page load
+        initWasm();
+        
+        // Sample JSON for testing
+        const simpleJson = `{"test": "value", "number": 123, "boolean": true, "nested": {"key": "value"}}`;
+        
+        // Larger test will fetch a larger JSON file
+        const largeJsonUrl = 'https://jsonplaceholder.typicode.com/photos';
+        
+        // Function to measure performance
+        async function measurePerformance(jsonData, iterations = 1) {
+            if (!wasmInitialized) {
+                return { error: "WASM module not initialized. Please try again." };
+            }
+            
+            // Test native JSON.parse
+            const nativeStart = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                JSON.parse(jsonData);
+            }
+            const nativeEnd = performance.now();
+            const nativeTime = nativeEnd - nativeStart;
+            
+            // Test WASM serde
+            const serdeStart = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                wasm_parse_json_serde(jsonData);
+            }
+            const serdeEnd = performance.now();
+            const serdeTime = serdeEnd - serdeStart;
+            
+            // Test WASM simd (which is actually using serde_json in WASM)
+            const simdStart = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                wasm_parse_json_simd(jsonData);
+            }
+            const simdEnd = performance.now();
+            const simdTime = simdEnd - simdStart;
+            
+            // Calculate differences
+            const serdeVsNative = ((nativeTime - serdeTime) / nativeTime * 100).toFixed(2);
+            const simdVsNative = ((nativeTime - simdTime) / nativeTime * 100).toFixed(2);
+            
+            // Display results
+            return {
+                native: nativeTime,
+                serde: serdeTime,
+                simd: simdTime,
+                serdeVsNative: serdeVsNative,
+                simdVsNative: simdVsNative,
+                iterations: iterations,
+                dataSize: jsonData.length
+            };
+        }
+        
+        // Handler for simple test
+        document.getElementById('run-simple').addEventListener('click', async () => {
+            const results = document.getElementById('results');
+            results.textContent = 'Running simple test...';
+            
+            try {
+                const perf = await measurePerformance(simpleJson, 10000);
+                
+                if (perf.error) {
+                    results.textContent = perf.error;
+                    return;
+                }
+                
+                results.textContent = `Simple JSON Test Results (${perf.dataSize} bytes, ${perf.iterations} iterations):\n`;
+                results.textContent += `Native JSON.parse: ${perf.native.toFixed(2)}ms\n`;
+                results.textContent += `WASM Serde: ${perf.serde.toFixed(2)}ms (${perf.serdeVsNative}% ${Number(perf.serdeVsNative) > 0 ? 'faster' : 'slower'} than native)\n`;
+                results.textContent += `WASM SIMD: ${perf.simd.toFixed(2)}ms (${perf.simdVsNative}% ${Number(perf.simdVsNative) > 0 ? 'faster' : 'slower'} than native)\n`;
+            } catch (error) {
+                results.textContent = `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+        
+        // Handler for large test
+        document.getElementById('run-large').addEventListener('click', async () => {
+            const results = document.getElementById('results');
+            results.textContent = 'Fetching large JSON data...';
+            
+            try {
+                const response = await fetch(largeJsonUrl);
+                const jsonData = await response.text();
+                results.textContent = 'Running large test...';
+                
+                const perf = await measurePerformance(jsonData, 100);
+                
+                if (perf.error) {
+                    results.textContent = perf.error;
+                    return;
+                }
+                
+                results.textContent = `Large JSON Test Results (${perf.dataSize} bytes, ${perf.iterations} iterations):\n`;
+                results.textContent += `Native JSON.parse: ${perf.native.toFixed(2)}ms\n`;
+                results.textContent += `WASM Serde: ${perf.serde.toFixed(2)}ms (${perf.serdeVsNative}% ${Number(perf.serdeVsNative) > 0 ? 'faster' : 'slower'} than native)\n`;
+                results.textContent += `WASM SIMD: ${perf.simd.toFixed(2)}ms (${perf.simdVsNative}% ${Number(perf.simdVsNative) > 0 ? 'faster' : 'slower'} than native)\n`;
+            } catch (error) {
+                results.textContent = `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html> 
